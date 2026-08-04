@@ -1,0 +1,463 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #FAFAFA;
+  --card-bg: #FFFFFF;
+  --border: #E5E7EB;
+  --border-focus: #1E40AF;
+  --text-primary: #1F2937;
+  --text-secondary: #6B7280;
+  --accent: #1E40AF;
+  --accent-hover: #1E3A8A;
+  --success: #16A34A;
+  --warning: #DC2626;
+  --surface: #F3F4F6;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.site-nav { max-width: 720px; margin: 0 auto; padding: 16px 24px 0; }
+.site-nav a { color: var(--accent); text-decoration: none; font-size: 14px; }
+.site-nav a:hover { text-decoration: underline; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== 容器 ========== */
+
+.app-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+  min-height: 100vh;
+}
+
+/* ========== 头部 ========== */
+
+.app-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.app-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.app-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ========== 步骤条 ========== */
+
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  gap: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step__number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-secondary);
+  transition: all 200ms ease-out;
+}
+
+.step--active .step__number {
+  background: var(--accent);
+  color: #fff;
+}
+
+.step--done .step__number {
+  background: var(--success);
+  color: #fff;
+}
+
+.step__label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: color 200ms ease-out;
+}
+
+.step--active .step__label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.step--done .step__label {
+  color: var(--success);
+}
+
+.step__line {
+  width: 48px;
+  height: 1px;
+  background: var(--border);
+  margin: 0 12px;
+}
+
+/* ========== 卡片 ========== */
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+}
+
+/* ========== 上传区域 ========== */
+
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 200ms ease-out;
+  position: relative;
+}
+
+.upload-zone:hover {
+  border-color: var(--accent);
+  background: rgba(30, 64, 175, 0.02);
+}
+
+.upload-zone--dragover {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(30, 64, 175, 0.04);
+}
+
+.upload-zone__icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-secondary);
+  margin: 0 auto 16px;
+}
+
+.upload-zone--dragover .upload-zone__icon {
+  color: var(--accent);
+}
+
+.upload-zone__text {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.upload-zone__subtext {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.upload-zone__input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ========== 处理中 ========== */
+
+.processing {
+  text-align: center;
+  padding: 48px 0;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--surface);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.processing__text {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.processing__subtext {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ========== 文件信息 ========== */
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.file-info svg {
+  flex-shrink: 0;
+}
+
+.file-info__details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-info__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.file-info__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ========== 警告 ========== */
+
+.warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #991B1B;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.warning-banner svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ========== 结果表格 ========== */
+
+.result-table-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.result-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.result-table th {
+  background: var(--surface);
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.result-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.row--unparsed {
+  background: #FEF2F2;
+}
+
+.date-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(30, 64, 175, 0.08);
+  color: var(--accent);
+}
+
+.date-badge--none {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--warning);
+}
+
+/* ========== 按钮 ========== */
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 200ms ease-out;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--secondary {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+/* ========== 滚动条 ========== */
+
+.result-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.result-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.result-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.result-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #D1D5DB;
+}
+
+/* Error step */
+.error-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.error-card .error-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  color: var(--danger);
+}
+
+.error-card .error-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.error-card .error-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+  white-space: pre-line;
+}
+
+.error-card .error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.error-card .btn-retry {
+  padding: 8px 24px;
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 200ms ease-out;
+}
+
+.error-card .btn-retry:hover {
+  opacity: 0.9;
+}
