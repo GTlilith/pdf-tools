@@ -1,9 +1,10 @@
 import './style.css';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker&inline';
 import { PDFDocument, rgb } from 'pdf-lib';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// 将 PDF.js Worker 内联到页面资源中，避免托管平台阻止动态加载 .mjs Worker。
+pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 
 type TicketStat = { ticketNumber: string; pages: number[]; needsBlankPage: boolean };
 const app = document.querySelector<HTMLDivElement>('#app')!;

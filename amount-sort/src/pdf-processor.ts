@@ -6,10 +6,10 @@
 
 import type { PDFPageProxy } from 'pdfjs-dist';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker&inline';
 
-// 由 Vite 打包 Worker，并生成兼容 GitHub Pages 子路径及自定义域名的 URL。
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// 将 PDF.js Worker 内联，避免托管平台阻止动态加载独立的 .mjs Worker。
+pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 
 /** 页面解析结果 */
 export interface PageAmountInfo {
