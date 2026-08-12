@@ -8,10 +8,10 @@
 2. 启动后选择 **Sign in to GitHub.com**，在浏览器登录账号 `GTlilith`。
 3. GitHub Desktop 菜单选择 **File → Add local repository**。
 4. 选择目录：
-   `C:\Users\glitt\Desktop\GitHub_tools\pdf-tools`
+   `C:\Users\glitt\gtlish\GitHub_tools\pdf-tools`
 5. 如果提示“不是 Git 仓库”，点击 **create a repository**：
    - Name：`pdf-tools`
-   - Local path：`C:\Users\glitt\Desktop\GitHub_tools`
+   - Local path：`C:\Users\glitt\gtlish\GitHub_tools`
    - Git ignore：None（项目已有 `.gitignore`）
    - License：None
 6. 提交信息输入：`Initial migration from Coze`，点击 **Commit to main**。
