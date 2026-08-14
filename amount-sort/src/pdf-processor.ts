@@ -4,9 +4,9 @@
  * 全部在浏览器本地运行，不涉及任何网络请求
  */
 
-import type { PDFPageProxy } from 'pdfjs-dist';
-import * as pdfjsLib from 'pdfjs-dist';
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker&inline';
+import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&inline';
 
 // 将 PDF.js Worker 内联，避免托管平台阻止动态加载独立的 .mjs Worker。
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();

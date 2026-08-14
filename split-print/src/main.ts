@@ -1,6 +1,6 @@
 import './style.css';
-import * as pdfjsLib from 'pdfjs-dist';
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker&inline';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&inline';
 import { PDFDocument, rgb } from 'pdf-lib';
 
 // 将 PDF.js Worker 内联到页面资源中，避免托管平台阻止动态加载 .mjs Worker。
