@@ -4,8 +4,9 @@
  * 全部在浏览器本地运行，不涉及任何网络请求
  */
 
+import './stream-polyfill';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&inline';
+import PdfWorker from './pdf.worker?worker&inline';
 
 // 将 PDF.js Worker 内联，避免托管平台阻止动态加载独立的 .mjs Worker。
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
