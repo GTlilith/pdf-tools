@@ -94,7 +94,7 @@ function parseChineseNumber(text: string): number | null {
  * - 贰零贰肆年壹拾贰月叁拾壹日
  * - 2024-12-31 / 2024/12/31
  */
-export function extractDateFromText(text: string): { date: Date | null; raw: string } {
+function extractDateOnce(text: string): { date: Date | null; raw: string } {
   // 策略1: 匹配 "汇票到期日" 后的中文日期 (阿拉伯数字)
   const arabicDateRegex = /汇票到期日\s*[：:]*\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/;
   const arabicMatch = text.match(arabicDateRegex);
@@ -137,6 +137,16 @@ export function extractDateFromText(text: string): { date: Date | null; raw: str
   }
 
   return { date: null, raw: '未识别' };
+}
+
+/**
+ * 提取到期日入口：先按原始文本匹配；失败后去除全部空白重试，
+ * 兼容字段标签逐字分离的新版票据（如"汇 票 到 期 日 2027-02-06"）。
+ */
+export function extractDateFromText(text: string): { date: Date | null; raw: string } {
+  const first = extractDateOnce(text);
+  if (first.date) return first;
+  return extractDateOnce(text.replace(/\s+/g, ''));
 }
 
 /**

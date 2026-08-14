@@ -153,7 +153,7 @@ export function parseChineseAmount(text: string): number | null {
  * - 票据金额（小写）¥1,000,000.00
  * - 中文大写: 壹佰万元整
  */
-function extractAmountFromText(text: string): { amount: number | null; raw: string } {
+function extractAmountOnce(text: string): { amount: number | null; raw: string } {
   // 策略1: 匹配 "票据金额" 或 "出票金额" 后的 ¥xxx,xxx.xx 格式
   const currencyRegex = /(?:票据金额|出票金额|金额)\s*[（(]?\s*小写\s*[）)]?\s*[：:]*\s*[¥￥]\s*([\d,]+\.?\d*)/;
   const currencyMatch = text.match(currencyRegex);
@@ -187,7 +187,7 @@ function extractAmountFromText(text: string): { amount: number | null; raw: stri
   }
 
   // 策略4: 匹配中文大写金额（带关键词前缀）
-  const cnAmountRegex = /(?:票据金额|出票金额|金额)\s*[（(]?\s*大写\s*[）)]?\s*[：:]*\s*(?:人民币)?\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿元角分整正]+)/;
+  const cnAmountRegex = /(?:票据金额|出票金额|金额)\s*(?:人民币)?\s*[（(]?\s*大写\s*[）)]?\s*[：:]*\s*(?:人民币)?\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿元角分整正]+)/;
   const cnMatch = text.match(cnAmountRegex);
   if (cnMatch) {
     const amount = parseChineseAmount(cnMatch[1]);
@@ -197,7 +197,7 @@ function extractAmountFromText(text: string): { amount: number | null; raw: stri
   }
 
   // 策略5: 更宽松的中文大写匹配（"人民币"前缀）
-  const looseCnRegex = /人民币\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿元角分整正]+)/;
+  const looseCnRegex = /人民币\s*[（(]?\s*(?:大写)?\s*[）)]?\s*[：:]*\s*([零壹贰叁肆伍陆柒捌玖拾佰仟万亿元角分整正]+)/;
   const looseCnMatch = text.match(looseCnRegex);
   if (looseCnMatch) {
     const amount = parseChineseAmount(looseCnMatch[1]);
@@ -218,6 +218,16 @@ function extractAmountFromText(text: string): { amount: number | null; raw: stri
   }
 
   return { amount: null, raw: '未识别' };
+}
+
+/**
+ * 金额提取入口：先按原始文本匹配；失败后去除全部空白重试，
+ * 兼容字段标签逐字分离的新版票据（如"票 据 金 额"）。
+ */
+function extractAmountFromText(text: string): { amount: number | null; raw: string } {
+  const first = extractAmountOnce(text);
+  if (first.amount !== null) return first;
+  return extractAmountOnce(text.replace(/\s+/g, ''));
 }
 
 // ========== 网格提取（策略2：位置感知） ==========
