@@ -252,7 +252,45 @@ export function sortByMaturityDate(pages: PageDateInfo[]): SortResult {
  * 二进制替换方案仅修改 Kids 数组中页面引用的排列顺序，
  * 文件其余部分（xref、对象流、字体子集等）完全原样保留。
  */
-export function reorderPdf(
+export async function reorderPdf(
+  originalBuffer: ArrayBuffer,
+  sortOrder: number[],
+): Promise<Uint8Array> {
+  // 优先尝试二进制重排（快、且完整保留原文件结构）；
+  // 对多层页面树或压缩结构的新版PDF会失败，此时回退到 pdf-lib 重新组装。
+  try {
+    return reorderPdfBinary(originalBuffer, sortOrder);
+  } catch (err) {
+    console.warn('二进制重排失败，回退 pdf-lib：', err);
+    return reorderPdfWithPdfLib(originalBuffer, sortOrder);
+  }
+}
+
+/**
+ * 使用 pdf-lib 复制页面并按排序重新组装，兼容多层页面树 / 新版式PDF。
+ */
+async function reorderPdfWithPdfLib(
+  originalBuffer: ArrayBuffer,
+  sortOrder: number[],
+): Promise<Uint8Array> {
+  const { PDFDocument } = await import('pdf-lib');
+  const src = await PDFDocument.load(originalBuffer, { ignoreEncryption: true });
+  const pageCount = src.getPageCount();
+  if (sortOrder.length !== pageCount) {
+    throw new Error(
+      `页面数量不匹配: PDF有${pageCount}页, 排序规则有${sortOrder.length}项`,
+    );
+  }
+  const out = await PDFDocument.create();
+  const copied = await out.copyPages(src, sortOrder);
+  copied.forEach((pg) => out.addPage(pg));
+  return out.save({ useObjectStreams: false });
+}
+
+/**
+ * 二进制级别重排：直接改写单层 Pages/Kids 数组的页面引用顺序。
+ */
+function reorderPdfBinary(
   originalBuffer: ArrayBuffer,
   sortOrder: number[],
 ): Uint8Array {
@@ -262,14 +300,15 @@ export function reorderPdf(
     .map((b) => String.fromCharCode(b))
     .join('');
 
-  // 1. 定位 Pages 字典中的 Kids 数组
-  const kidsStart = pdfStr.indexOf('Kids[');
-  if (kidsStart < 0) {
+  // 1. 定位 Pages 字典中的 Kids 数组（兼容 'Kids[' 与 'Kids ['）
+  const kidsMatch = /Kids\s*\[/.exec(pdfStr);
+  if (!kidsMatch) {
     throw new Error('无法在PDF中找到Pages/Kids数组');
   }
+  const kidsStart = kidsMatch.index;
 
-  // 找到 Kids[ 的结束位置：]/Type/Pages 或 ]>>/Type/Pages
-  const arrayContentStart = kidsStart + 5; // 'Kids[' 的长度
+  // 找到 Kids[ 的结束位置
+  const arrayContentStart = kidsStart + kidsMatch[0].length;
   let bracketDepth = 1;
   let arrayContentEnd = arrayContentStart;
   while (arrayContentEnd < pdfStr.length && bracketDepth > 0) {

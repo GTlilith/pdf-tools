@@ -361,7 +361,7 @@ async function handleExport(): Promise<void> {
   }
 
   try {
-    const newPdfBytes = reorderPdf(
+    const newPdfBytes = await reorderPdf(
       state.fileBuffer,
       state.sortResult.sortOrder,
     );
