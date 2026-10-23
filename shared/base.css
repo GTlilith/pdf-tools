@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  --bg: #f2f5f8;
+  --card-bg: #ffffff;
+  --text-primary: #203347;
+  --text-secondary: #617487;
+  --border: #d9e2eb;
+  --accent: #245d86;
+  --accent-hover: #194b70;
+  --surface: #edf3f8;
+  --success: #27705e;
+  --warning: #995c17;
+  --radius: 14px;
+  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text-primary); line-height: 1.65; min-width: 320px; }
+button, input { font: inherit; }
+button, a, label { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+svg { flex-shrink: 0; vertical-align: middle; }
+:focus-visible { outline: 3px solid #397ba9; outline-offset: 4px; }
+[hidden] { display: none !important; }
+.skip-link { position: fixed; top: -80px; left: 20px; z-index: 10; padding: 12px 20px; background: var(--accent); color: white; border-radius: 8px; }
+.skip-link:focus { top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
