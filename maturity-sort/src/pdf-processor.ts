@@ -4,6 +4,7 @@
  * 全部在浏览器本地运行，不涉及任何网络请求
  */
 
+import { normalizePdfText } from '../../shared/pdf-text';
 import './stream-polyfill';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import PdfWorker from './pdf.worker?worker&inline';
@@ -144,9 +145,10 @@ function extractDateOnce(text: string): { date: Date | null; raw: string } {
  * 兼容字段标签逐字分离的新版票据（如"汇 票 到 期 日 2027-02-06"）。
  */
 export function extractDateFromText(text: string): { date: Date | null; raw: string } {
-  const first = extractDateOnce(text);
+  const normalizedText = normalizePdfText(text);
+  const first = extractDateOnce(normalizedText);
   if (first.date) return first;
-  return extractDateOnce(text.replace(/\s+/g, ''));
+  return extractDateOnce(normalizedText.replace(/\s+/g, ''));
 }
 
 /**

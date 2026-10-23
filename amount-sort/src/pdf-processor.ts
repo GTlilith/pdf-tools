@@ -4,6 +4,7 @@
  * 全部在浏览器本地运行，不涉及任何网络请求
  */
 
+import { normalizePdfText } from '../../shared/pdf-text';
 import './stream-polyfill';
 import type { PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -225,9 +226,10 @@ function extractAmountOnce(text: string): { amount: number | null; raw: string }
  * 兼容字段标签逐字分离的新版票据（如"票 据 金 额"）。
  */
 function extractAmountFromText(text: string): { amount: number | null; raw: string } {
-  const first = extractAmountOnce(text);
+  const normalizedText = normalizePdfText(text);
+  const first = extractAmountOnce(normalizedText);
   if (first.amount !== null) return first;
-  return extractAmountOnce(text.replace(/\s+/g, ''));
+  return extractAmountOnce(normalizedText.replace(/\s+/g, ''));
 }
 
 // ========== 网格提取（策略2：位置感知） ==========
@@ -275,7 +277,7 @@ async function extractAmountFromGrid(
   for (const item of textContent.items) {
     if (!('str' in item)) continue;
     const ti = item as { str: string; transform: Array<number>; width: number; height: number };
-    const str = ti.str.trim();
+    const str = normalizePdfText(ti.str).trim();
     if (!str) continue;
     items.push({
       str,
@@ -296,7 +298,7 @@ async function extractAmountFromGrid(
   const headerLabels = ['十亿', '千万', '百万', '十万', '亿', '千', '百', '十', '万', '元', '角', '分'];
 
   // 找到所有可能是表头的项
-  const headerItems: { item: PositionedItem; label: string }[] = [];
+  let headerItems: { item: PositionedItem; label: string }[] = [];
   for (const item of items) {
     for (const label of headerLabels) {
       if (item.str === label && item.str.length <= 2) {
@@ -317,6 +319,12 @@ async function extractAmountFromGrid(
   // 确定表头的 y 坐标（取中位数）
   const headerYValues = headerItems.map((h) => h.item.y).sort((a, b) => a - b);
   const headerY = headerYValues[Math.floor(headerYValues.length / 2)];
+
+  // 仅保留表头同一行，避免把大写金额中的独立“角/分”误当成额外列。
+  headerItems = headerItems.filter((h) => Math.abs(h.item.y - headerY) <= 3);
+  if (headerItems.length < 5) {
+    return { amount: null, raw: '未识别' };
+  }
 
   // 找到数字行：在表头下方、x 位置相近的数字项
   const allDigits = /^[0-9零壹贰叁肆伍陆柒捌玖]$/;
