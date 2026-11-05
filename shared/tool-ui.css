@@ -91,6 +91,7 @@ progress::-moz-progress-bar { background: var(--accent); }
 .value-badge { display: inline-block; border-radius: 5px; padding: 3px 8px; color: var(--accent); background: #eaf2f8; font-family: 'Cascadia Mono', Consolas, 'Microsoft YaHei', monospace; font-size: 12px; white-space: nowrap; }
 .value-badge--muted { color: var(--text-secondary); background: #eaf0f4; font-family: inherit; }
 .value-badge--success { background: #e6f2ed; color: var(--success); font-family: inherit; }
+.value-badge--warning { color: var(--warning); background: #fff0cc; font-family: inherit; margin-top: 6px; }
 .ticket-number { font-family: Consolas, monospace; white-space: nowrap; letter-spacing: .02em; }
 .actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }
 .export-feedback { font-size: 12px; color: var(--success); text-align: right; margin-top: 12px; }

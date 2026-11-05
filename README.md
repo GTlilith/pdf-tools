@@ -13,7 +13,7 @@
 
 ## 功能
 
-1. **插页打印**：按票据号码识别票据边界，票据页数为奇数时在其后插入同尺寸空白页。
+1. **插页打印**：按票据包号和子票据号识别票据边界，兼容“子票区间”等标签及独立的“起-止”区间行；同包号不同子票据分别分组，票据页数为奇数时在其后插入同尺寸空白页。未识别到子票据号时按包号分组，并在结果中标黄提醒核对，未识别出票号的页面作为前一张票据的续页。
 2. **到期日排序**：提取“汇票到期日”，按日期从晚到早重排；未识别页面作为前一张票据的续页。
 3. **金额排序**：提取票据金额，按金额从大到小重排；未识别页面作为前一张票据的续页。
 
@@ -22,7 +22,7 @@
 需要 Node.js 22：
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
@@ -33,6 +33,25 @@ npm run build
 ```
 
 生成文件在 `dist` 目录。
+
+## 回归检查
+
+```powershell
+npm test
+```
+
+测试覆盖子票据号格式、包号回退标记、二进制重排的页序与 xref 偏移，以及对象流 PDF 的回退导出。测试直接转译项目源码，不增加依赖；CI 安装锁定依赖后会先测试再构建。
+
+真实汇票样本不入库。可通过环境变量传入本机样本及预期值，再运行同一测试入口：
+
+```powershell
+$env:PDF_REGRESSION_SAMPLES = '[{"path":"C:/samples/example.pdf","groups":22,"blanks":13,"outputPages":74,"packageOnlyGroups":0}]'
+npm test
+Remove-Item Env:PDF_REGRESSION_SAMPLES
+```
+
+`groups` 为分组数，`blanks` 为补空白页数，`outputPages` 为预期输出总页数；`packageOnlyGroups` 可选，用于核对缺少子票号的分组数。
+
 
 ## GitHub Pages 部署
 

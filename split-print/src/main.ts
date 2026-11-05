@@ -1,16 +1,15 @@
+import { extractTicketIdentity, type TicketIdentity, type PdfTextItem } from './ticket-identity';
 import { readPdfFile } from '../../shared/pdf-file';
 import './style.css';
 import './stream-polyfill';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import PdfWorker from './pdf.worker?worker&inline';
+import PdfWorker from '../../shared/pdf.worker?worker';
 import { PDFDocument, rgb } from 'pdf-lib';
-import { bindUpload, downloadFile, fileInfo, focusContent, formatFileSize, icon, readableError, renderError, renderProcessing, renderSteps, renderUpload, resultActions, toolShell, updateProgress, type ToolStep } from '../../shared/tool-ui';
+import { bindUpload, downloadFile, escapeHtml, fileInfo, focusContent, formatFileSize, icon, readableError, renderError, renderProcessing, renderSteps, renderUpload, resultActions, toolShell, updateProgress, type ToolStep } from '../../shared/tool-ui';
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 
-type TicketIdentity = { key: string; label: string };
-type TicketStat = { ticketNumber: string; ticketKey: string; pages: number[]; needsBlankPage: boolean };
-type PdfTextItem = { str?: string; transform?: number[] };
+type TicketStat = { ticketNumber: string; ticketKey: string; hasSubTicket: boolean; pages: number[]; needsBlankPage: boolean };
 const app = document.querySelector<HTMLDivElement>('#app')!;
 let downloadUrl = '';
 let outputName = '';
@@ -38,67 +37,16 @@ function render(moveFocus = false): void {
   if (moveFocus) focusContent();
 }
 
-function buildTextLines(items: PdfTextItem[]): string[] {
-  const positioned = items
-    .map((item, index) => ({ text: item.str || '', index, x: item.transform?.[4], y: item.transform?.[5] }))
-    .filter(item => item.text);
-  if (!positioned.length) return [];
-  if (!positioned.every(item => typeof item.x === 'number' && typeof item.y === 'number')) {
-    return [positioned.map(item => item.text).join(' ').replace(/\s+/g, ' ').trim()];
-  }
-
-  const rows: Array<{ y: number; items: typeof positioned }> = [];
-  for (const item of positioned) {
-    const row = rows.find(candidate => Math.abs(candidate.y - item.y!) <= 2);
-    if (row) row.items.push(item);
-    else rows.push({ y: item.y!, items: [item] });
-  }
-  return rows
-    .sort((a, b) => b.y - a.y)
-    .map(row => row.items
-      .sort((a, b) => (a.x! - b.x!) || (a.index - b.index))
-      .map(item => item.text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim());
-}
-
-function extractTicketIdentity(items: PdfTextItem[]): TicketIdentity | null {
-  const lines = buildTextLines(items);
-  for (let i = 0; i < lines.length; i++) {
-    const compactLine = lines[i].replace(/\s/g, '');
-    const labelIndex = compactLine.indexOf('票据号码');
-    if (labelIndex < 0) continue;
-    const packageNumber = compactLine.slice(labelIndex + '票据号码'.length).match(/\d{16,30}/)?.[0];
-    if (!packageNumber) continue;
-
-    // 子票据号位于票据包号的紧下方，通常表现为“起始号 - 结束号”。
-    const subTicketLine = lines.slice(i + 1, i + 3)
-      .map(line => line.replace(/\s/g, ''))
-      .find(line => /^\d{1,12}[-—至]\d{1,12}$/.test(line));
-    const subTicketNumber = subTicketLine?.replace(/[—至]/, '-') || '';
-    return {
-      key: subTicketNumber ? `${packageNumber}|${subTicketNumber}` : packageNumber,
-      label: subTicketNumber ? `${packageNumber} / ${subTicketNumber}` : packageNumber,
-    };
-  }
-
-  const joined = items.map(x => x.str || '').join(' ');
-  const labeled = joined.match(/(?:No\.?|Ticket\s*No\.?)\s*[.:：]?\s*(\d[\d\s]{14,}\d)/i);
-  if (!labeled) return null;
-  const packageNumber = labeled[1].replace(/\s/g, '');
-  return packageNumber.length <= 30 ? { key: packageNumber, label: packageNumber } : null;
-}
-
 async function processFile(file: File): Promise<void> {
   if (busy) return;
   busy = true; selectedFile = file; step = 'processing'; render(true);
   try {
     const buffer = await readPdfFile(file);
     updateProgress(8, '正在读取 PDF…');
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise;
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) });
     const pageTickets: Array<TicketIdentity | null> = [];
     try {
+      const pdf = await loadingTask.promise;
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
@@ -106,7 +54,7 @@ async function processFile(file: File): Promise<void> {
         updateProgress(10 + Math.round(i / pdf.numPages * 50), `正在识别第 ${i} / ${pdf.numPages} 页`);
       }
     } finally {
-      await (pdf as unknown as { destroy?: () => Promise<void> }).destroy?.();
+      await loadingTask.destroy();
     }
 
     // 未识别页作为前一张票据的续页；第一张票据首张必须能识别，避免误插页。
@@ -115,7 +63,7 @@ async function processFile(file: File): Promise<void> {
     for (let i = 0; i < pageTickets.length; i++) {
       const ticket = pageTickets[i];
       if (ticket && (!current || ticket.key !== current.ticketKey)) {
-        current = { ticketKey: ticket.key, ticketNumber: ticket.label, pages: [i], needsBlankPage: false };
+        current = { ticketKey: ticket.key, ticketNumber: ticket.label, hasSubTicket: ticket.hasSubTicket, pages: [i], needsBlankPage: false };
         stats.push(current);
       } else if (current) {
         current.pages.push(i);
@@ -157,6 +105,7 @@ async function processFile(file: File): Promise<void> {
 }
 
 function renderResult(): string {
+  const packageOnlyCount = resultStats.filter(stat => !stat.hasSubTicket).length;
   return `<section class="card result-card">
     ${fileInfo(selectedFile!.name, `${formatFileSize(selectedFile!.size)} · ${originalPages} 页`)}
     <div class="stats stats--four">
@@ -166,8 +115,9 @@ function renderResult(): string {
       <div class="stat"><span>票据数量</span><strong>${resultStats.length}<small>张</small></strong></div>
     </div>
     <div class="notice">${icon('check')}<span>已为奇数页票据补入空白页。打印时请选择双面打印，每张票据将从新的一张纸开始。</span></div>
+    ${packageOnlyCount ? `<div class="notice notice--warning" role="status">${icon('alert')}<span>${packageOnlyCount} 组未识别到子票据号，已仅按包号分组。同一包号内的不同子票据可能合并，请核对标黄分组的原始页码及插页位置。</span></div>` : ''}
     <div class="section-heading"><h2>插页预览</h2><span>按票据包号与子票据号分组，保持原始顺序</span></div>
-    <div class="result-table-wrapper" tabindex="0" role="region" aria-label="插页结果，可滚动"><table class="result-table"><thead><tr><th scope="col">序号</th><th scope="col">票据号码</th><th scope="col">原始页码</th><th scope="col">页数</th><th scope="col">插页结果</th></tr></thead><tbody>${resultStats.map((stat, index) => `<tr><td>${index + 1}</td><td class="ticket-number">${stat.ticketNumber}</td><td>${stat.pages.map(page => page + 1).join('、')}</td><td>${stat.pages.length}</td><td><span class="value-badge ${stat.needsBlankPage ? 'value-badge--success' : 'value-badge--muted'}">${stat.needsBlankPage ? '已插入空白页' : '无需插页'}</span></td></tr>`).join('')}</tbody></table></div>
+    <div class="result-table-wrapper" tabindex="0" role="region" aria-label="插页结果，可滚动"><table class="result-table"><thead><tr><th scope="col">序号</th><th scope="col">票据号码</th><th scope="col">原始页码</th><th scope="col">页数</th><th scope="col">插页结果</th></tr></thead><tbody>${resultStats.map((stat, index) => `<tr class="${stat.hasSubTicket ? '' : 'row--unparsed'}"><td>${index + 1}</td><td class="ticket-number">${escapeHtml(stat.ticketNumber)}${stat.hasSubTicket ? '' : '<br><span class="value-badge value-badge--warning">未识别子票号 · 仅按包号分组</span>'}</td><td>${stat.pages.map(page => page + 1).join('、')}</td><td>${stat.pages.length}</td><td><span class="value-badge ${stat.needsBlankPage ? 'value-badge--success' : 'value-badge--muted'}">${stat.needsBlankPage ? '已插入空白页' : '无需插页'}</span></td></tr>`).join('')}</tbody></table></div>
     ${resultActions()}
   </section>`;
 }

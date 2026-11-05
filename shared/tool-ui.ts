@@ -2,7 +2,7 @@ export type ToolId = 'split-print' | 'maturity-sort' | 'amount-sort';
 export type ToolStep = 'upload' | 'processing' | 'result' | 'error';
 
 const tools: { id: ToolId; name: string; title: string; description: string; rule: string }[] = [
-  { id: 'split-print', name: '插页打印', title: '拆分汇票插页打印', description: '按票据包号和子票据号分组，为奇数页票据补入空白页，方便双面打印。', rule: '包号＋紧下方子票据号分组 · 奇数页后补空白页' },
+  { id: 'split-print', name: '插页打印', title: '拆分汇票插页打印', description: '按票据包号和子票据号分组，为奇数页票据补入空白页，方便双面打印。', rule: '包号＋子票据号分组 · 缺少子票号时提醒核对 · 奇数页后补空白页' },
   { id: 'maturity-sort', name: '到期日排序', title: '汇票到期日排序', description: '按到期日从晚到早排列汇票，续页随所属票据一起移动。', rule: '到期日从晚到早 · 保留票据与续页关系' },
   { id: 'amount-sort', name: '金额排序', title: '汇票金额排序', description: '按票据金额从大到小排列汇票，续页随所属票据一起移动。', rule: '金额从大到小 · 保留票据与续页关系' },
 ];

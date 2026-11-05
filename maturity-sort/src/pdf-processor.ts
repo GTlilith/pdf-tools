@@ -1,3 +1,4 @@
+export { reorderPdf } from '../../shared/pdf-reorder';
 /**
  * PDF处理核心模块
  * 负责PDF文本提取、日期解析、页面重排序
@@ -7,9 +8,9 @@
 import { normalizePdfText } from '../../shared/pdf-text';
 import './stream-polyfill';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import PdfWorker from './pdf.worker?worker&inline';
+import PdfWorker from '../../shared/pdf.worker?worker';
 
-// 将 PDF.js Worker 内联，避免托管平台阻止动态加载独立的 .mjs Worker。
+// 使用共享的独立 .js Worker，让三个工具复用同一资源的浏览器缓存。
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
 
 /** 页面解析结果 */
@@ -24,7 +25,6 @@ export interface PageDateInfo {
 export interface SortResult {
   pages: PageDateInfo[];
   sortOrder: number[];     // 排序后的页码索引数组
-  hasUnparsed: boolean;    // 是否有未能解析日期的页面
 }
 
 // ========== 中文数字转换 ==========
@@ -159,32 +159,37 @@ export async function extractMaturityDates(
   onProgress?: (current: number, total: number) => void,
 ): Promise<PageDateInfo[]> {
   const data = new Uint8Array(arrayBuffer);
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
-  const totalPages = pdf.numPages;
-  const results: PageDateInfo[] = [];
+  const loadingTask = pdfjsLib.getDocument({ data });
+  try {
+    const pdf = await loadingTask.promise;
+    const totalPages = pdf.numPages;
+    const results: PageDateInfo[] = [];
 
-  for (let i = 1; i <= totalPages; i++) {
-    if (onProgress) onProgress(i, totalPages);
+    for (let i = 1; i <= totalPages; i++) {
+      if (onProgress) onProgress(i, totalPages);
 
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
 
-    // 拼接页面文本
-    const pageText = textContent.items
-      .map((item) => ('str' in item ? String((item as Record<string, unknown>).str) : ''))
-      .join(' ');
+      // 拼接页面文本
+      const pageText = textContent.items
+        .map((item) => ('str' in item ? String((item as Record<string, unknown>).str) : ''))
+        .join(' ');
 
-    const { date, raw } = extractDateFromText(pageText);
+      const { date, raw } = extractDateFromText(pageText);
 
-    results.push({
-      pageIndex: i - 1,
-      maturityDate: date,
-      rawDateText: raw,
-      pageText,
-    });
+      results.push({
+        pageIndex: i - 1,
+        maturityDate: date,
+        rawDateText: raw,
+        pageText,
+      });
+    }
+
+    return results;
+  } finally {
+    await loadingTask.destroy();
   }
-
-  return results;
 }
 
 /**
@@ -232,131 +237,11 @@ export function sortByMaturityDate(pages: PageDateInfo[]): SortResult {
   // 3. 展平为排序结果
   const sorted = groups.flatMap((g) => g.pages);
   const sortOrder = sorted.map((p) => p.pageIndex);
-  const hasUnparsed = sorted.some((p) => p.maturityDate === null);
 
   return {
     pages: sorted,
     sortOrder,
-    hasUnparsed,
   };
-}
-
-/**
- * 根据排序结果生成新的PDF文件
- *
- * 核心策略：直接在PDF二进制数据中替换 Pages/Kids 数组的页面引用顺序。
- * 不使用 pdf-lib 重新序列化，因为：
- * 1. pdf-lib 的 copyPages 会丢失表单字段、注解、嵌入字体等内容
- * 2. pdf-lib 的 save（即使 useObjectStreams:false）重新序列化字典时，
- *    对于存在重复对象编号的PDF（如本测试文件中对象13既定义了ToUnicode CMap
- *    又定义了页面对象），会用后一个覆盖前一个，导致ToUnicode映射表丢失
- *
- * 二进制替换方案仅修改 Kids 数组中页面引用的排列顺序，
- * 文件其余部分（xref、对象流、字体子集等）完全原样保留。
- */
-export async function reorderPdf(
-  originalBuffer: ArrayBuffer,
-  sortOrder: number[],
-): Promise<Uint8Array> {
-  // 优先尝试二进制重排（快、且完整保留原文件结构）；
-  // 对多层页面树或压缩结构的新版PDF会失败，此时回退到 pdf-lib 重新组装。
-  try {
-    return reorderPdfBinary(originalBuffer, sortOrder);
-  } catch (err) {
-    console.warn('二进制重排失败，回退 pdf-lib：', err);
-    return reorderPdfWithPdfLib(originalBuffer, sortOrder);
-  }
-}
-
-/**
- * 使用 pdf-lib 复制页面并按排序重新组装，兼容多层页面树 / 新版式PDF。
- */
-async function reorderPdfWithPdfLib(
-  originalBuffer: ArrayBuffer,
-  sortOrder: number[],
-): Promise<Uint8Array> {
-  const { PDFDocument } = await import('pdf-lib');
-  const src = await PDFDocument.load(originalBuffer, { ignoreEncryption: true });
-  const pageCount = src.getPageCount();
-  if (sortOrder.length !== pageCount) {
-    throw new Error(
-      `页面数量不匹配: PDF有${pageCount}页, 排序规则有${sortOrder.length}项`,
-    );
-  }
-  const out = await PDFDocument.create();
-  const copied = await out.copyPages(src, sortOrder);
-  copied.forEach((pg) => out.addPage(pg));
-  return out.save({ useObjectStreams: false });
-}
-
-/**
- * 二进制级别重排：直接改写单层 Pages/Kids 数组的页面引用顺序。
- */
-function reorderPdfBinary(
-  originalBuffer: ArrayBuffer,
-  sortOrder: number[],
-): Uint8Array {
-  // 将 ArrayBuffer 转为二进制字符串进行操作
-  const bytes = new Uint8Array(originalBuffer);
-  const pdfStr = Array.from(bytes)
-    .map((b) => String.fromCharCode(b))
-    .join('');
-
-  // 1. 定位 Pages 字典中的 Kids 数组（兼容 'Kids[' 与 'Kids ['）
-  const kidsMatch = /Kids\s*\[/.exec(pdfStr);
-  if (!kidsMatch) {
-    throw new Error('无法在PDF中找到Pages/Kids数组');
-  }
-  const kidsStart = kidsMatch.index;
-
-  // 找到 Kids[ 的结束位置
-  const arrayContentStart = kidsStart + kidsMatch[0].length;
-  let bracketDepth = 1;
-  let arrayContentEnd = arrayContentStart;
-  while (arrayContentEnd < pdfStr.length && bracketDepth > 0) {
-    if (pdfStr[arrayContentEnd] === '[') bracketDepth++;
-    else if (pdfStr[arrayContentEnd] === ']') bracketDepth--;
-    if (bracketDepth > 0) arrayContentEnd++;
-  }
-  // arrayContentEnd 现在指向 ']' 字符
-
-  const kidsContent = pdfStr.substring(arrayContentStart, arrayContentEnd);
-
-  // 2. 解析 Kids 数组中的页面引用（格式: "X Y R"）
-  const refRegex = /(\d+)\s+(\d+)\s+R/g;
-  const pageRefs: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = refRegex.exec(kidsContent)) !== null) {
-    pageRefs.push(`${match[1]} ${match[2]} R`);
-  }
-
-  if (pageRefs.length === 0) {
-    throw new Error('Kids数组中未找到页面引用');
-  }
-
-  if (pageRefs.length !== sortOrder.length) {
-    throw new Error(
-      `页面数量不匹配: Kids数组有${pageRefs.length}个引用, 排序规则有${sortOrder.length}项`,
-    );
-  }
-
-  // 3. 按排序结果重排页面引用
-  const newKidsContent =
-    ' ' + sortOrder.map((idx) => pageRefs[idx]).join('  ') + ' ';
-
-  // 4. 替换 Kids 数组内容，保留文件其余部分不变
-  const newPdfStr =
-    pdfStr.substring(0, arrayContentStart) +
-    newKidsContent +
-    pdfStr.substring(arrayContentEnd);
-
-  // 转回 Uint8Array
-  const result = new Uint8Array(newPdfStr.length);
-  for (let i = 0; i < newPdfStr.length; i++) {
-    result[i] = newPdfStr.charCodeAt(i);
-  }
-
-  return result;
 }
 
 /**
